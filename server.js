@@ -111,7 +111,7 @@ bb.sync = function(method, model, options) {
 
 app.get('/items', function(req, res) {
   res.writeHead(200)
-  res.end(JSON.stringify(store.models))
+  res.end(JSON.stringify(store.get()))
 })
 app.get('/items/:id', function(req, res) {
   res.writeHead(200)
@@ -122,43 +122,14 @@ app.post('/items', function(req, res) {
   res.end(JSON.stringify(store.create(req.body)))
 })
 app.put('/items/:id', function(req, res) {
+  req.body.id = req.params.id
   res.writeHead(200)
-  res.end(JSON.stringify(store.get(req.params.id).set(req.body)))
+  res.end(JSON.stringify(store.set(req.body)))
 })
 app.del('/items/:id', function(req, res) {
   res.writeHead(200)
   res.end(JSON.stringify(store.destroy(req.params.id)))
 })
-
-// app.get('/items', function(req, res){
-//   var result = []
-//   for (var i in items)
-//     result.push(items[i])
-//   res.writeHead(200)
-//   res.end(JSON.stringify(result))
-// })
-// app.get('/items/:id', function(req, res){  // bb.collection -> get
-//   res.writeHead(200)
-//   var id = req.params.id
-//   res.end(JSON.stringify(items[id]))
-// })
-// app.post('/items', function(req, res){     // bb.collection -> create
-//   console.log(req.body)
-//   var id = Date.now()
-//   items[id] = req.body
-//   items[id].id = id
-//   res.writeHead(200)
-//   res.end(JSON.stringify(req.body))
-// })
-// app.put('/items/:id', function(req, res){   // bb.collection -> add
-//   console.log(req.body)
-//   var id = req.params.id
-//   items[id] = req.body
-//   items[id].id = id
-//   res.writeHead(200)
-//   res.end(JSON.stringify(req.body))
-// })
-// app.del('/items/:id', function() {})
 
 //------------------------------------------------------------------------------
 //                                      RPC API (server-side backbone)
