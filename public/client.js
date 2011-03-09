@@ -3,32 +3,8 @@
   var jade = require('jade')
     , bb = require('backbone')
     , _ = require('underscore')._
+    , resources = require('./resources')
     , views = {}
-    , models = {}
-    , collections = {}
-    
-  models.Item = bb.Model.extend(
-    { initialize: function() {
-        _.bind(this)
-        var rndA = Math.floor(Math.random()*10)
-          , rndB = Math.floor(Math.random()*10)
-          , colors = ['#dd0','#d0d','#0dd','#d00','#0d0','#00d']
-        if (!this.get('x')) this.set({x:(rndA*50)})
-        if (!this.get('y')) this.set({y:(rndB*50)+120})
-        if (!this.get('w')) this.set({w:(rndA*5)+20})
-        if (!this.get('h')) this.set({h:(rndA*5)+20})
-        if (!this.get('c')) this.set({c:colors[rndA%colors.length]})
-        if (!this.get('name')) this.set({name:Date.now()%1000})
-        this.bind('change',function(data){
-          console.log(['item changed!',data])
-        })
-      }
-    })
- 
-  collections.Items = bb.Collection.extend(
-    { model:models.Item
-    , url:'/items'  // this is used by the server-side bb.sync (REST)
-    })
   
   views.Item = bb.View.extend(
     { initialize: function() {
@@ -62,13 +38,14 @@
   
   views.App = bb.View.extend(
     { template:
-      [ 'h1 serverside backbonejs'
-      , 'button#createItem create new item    '
-      , 'button#ajaxSave save via Ajax        '
-      , 'button#ajaxFetch fetch via Ajax      '
-      , 'button#dnodeEnable enable Dnode      '
-      , 'button#dnodeDisable disable Dnode    '
-      , 'div#info                             '
+      [ 'h1 backbone-server-example         '
+      , 'button#createItem create new item  '
+      , 'button#deleteItems delete all items'
+      , 'button#ajaxSave save via Ajax      '
+      , 'button#ajaxFetch fetch via Ajax    '
+      , 'button#dnodeEnable enable Dnode    '
+      , 'button#dnodeDisable disable Dnode  '
+      , 'div#info                           '
       ].join('\n')
     , events: 
       { 'click #createItem'   : 'createItem'
@@ -84,9 +61,12 @@
         return this
       }
     , initialize: function() { 
-        _.bindAll(this, 'drawItem')
+        _.bindAll(this, 'drawItem', 'collections')
         var self = this
-        self.items = new collections.Items
+        console.log('asdf')
+        console.log(self.collections.Items)
+        self.items = new resources.collections.Items
+        //self.items = self.collections.Items
         self.items.bind('all',function(event,data){
           console.log('views.App.items -> '+event+' triggered')
           //console.log(data)
@@ -137,7 +117,7 @@
       }
     })
   
-  exports.App = views.App
+  new views.App
   
 })(window, DNode)
 
