@@ -1,14 +1,13 @@
 !!! 5
 html
   head
-    title dnode test
+    title serverside backbonejs
     link(rel='stylesheet', href='/layout.css')
-  body                         
-    script(src='/ddr-ecma5.js')
-    script(src='/dnode.js')
+  body
     script(src='/jquery-1.5.min.js')
-    script(src='/underscore-1.1.4.min.js')
-    script(src='/backbone.js')
     script(src='/jquery-ui-1.8.10.custom.min.js')
-    script(src='/jade-browser.js')
+    script(src='/browserify.js')
+    script(src='/dnode.js')
     script(src='/client.js')
+    :javascript
+      | new App

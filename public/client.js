@@ -1,12 +1,12 @@
-(function(exports, bb, jade, dnode){
+(function(exports, dnode){
     
-  module = {}
-  module.exports = window
-  
-  var models = exports.models = {}
-    , collections = exports.collections = {}
-    , views = exports.views = {}
-  
+  var jade = require('jade')
+    , bb = require('backbone')
+    , _ = require('underscore')._
+    , views = {}
+    , models = {}
+    , collections = {}
+    
   models.Item = bb.Model.extend(
     { initialize: function() {
         _.bind(this)
@@ -24,30 +24,26 @@
         })
       }
     })
-   
+ 
   collections.Items = bb.Collection.extend(
     { model:models.Item
-    , url:'/items'
+    , url:'/items'  // this is used by the server-side bb.sync (REST)
     })
-
-//----------------------------------------------------------
   
   views.Item = bb.View.extend(
     { initialize: function() {
-        //console.log('views.Item -> init')
-        var self=this
-        _.bindAll(this, 'render')
-        this.model.bind('change', this.render)
-        this.model.view = this
-        this.render()
-        $(this.el).bind('drag',function(){
+        var self = this
+        _.bindAll(self, 'render')
+        self.model.bind('change', self.render)
+        self.model.view = self
+        self.render()
+        $(self.el).bind('drag',function(){
           var pos = $(this).position()
           self.model.set({x:pos.left,y:pos.top})
         })
       }
     , template: '#{name}'
     , render: function() {
-        console.log('itemrender '+this.model.attributes.name)
         var self = this
         $(self.el)
           .addClass('item')
@@ -59,20 +55,20 @@
             })
           .draggable()          
           .html(jade.render(self.template,{locals:{name:self.model.attributes.name}}))
-        $('body').append($(self.el))          
+        //$('body').append($(self.el))          
         return self
       }
     })
   
   views.App = bb.View.extend(
     { template:
-      [ 'h1 dnode test                    '
-      , 'button#createItem create new item'
-      , 'button#ajaxSave save via Ajax    '
-      , 'button#ajaxFetch fetch via Ajax  '
-      , 'button#dnodeEnable enable Dnode  '
-      , 'button#dnodeDisable disable Dnode'
-      , 'div#info                         '
+      [ 'h1 serverside backbonejs'
+      , 'button#createItem create new item    '
+      , 'button#ajaxSave save via Ajax        '
+      , 'button#ajaxFetch fetch via Ajax      '
+      , 'button#dnodeEnable enable Dnode      '
+      , 'button#dnodeDisable disable Dnode    '
+      , 'div#info                             '
       ].join('\n')
     , events: 
       { 'click #createItem'   : 'createItem'
@@ -82,29 +78,30 @@
       , 'click #dnodeDisable' : 'dnodeDisable'
       }
     , render: function() {
-        console.log('views.App -> render')
         $(this.el).html(jade.render(this.template))
         $(this.el).find('#dnodeDisable').hide()
         $('body').append($(this.el))
         return this
       }
     , initialize: function() { 
-        console.log('views.App -> init')
         _.bindAll(this, 'drawItem')
         var self = this
         self.items = new collections.Items
         self.items.bind('all',function(event,data){
-          //console.log('views.App.items -> '+event+' triggered')
+          console.log('views.App.items -> '+event+' triggered')
           //console.log(data)
         })
         self.items.bind('add',self.drawItem)
         self.items.bind('refresh',function(data){
           console.log(['items refresh',data])
           //self.items.each(self.drawItem)
+          _.each(data.models, function(model){
+            //console.log(model)
+          })
           self.items.each(function(model){
             //var view = new views.Item({model:model})
-            console.log(model.view)
-            model.view && model.view.render()
+            //console.log(model.view)
+            //model.view && model.view.render()
           })
         })
         self.items.fetch({success:function(data){
@@ -131,24 +128,16 @@
         }})
       }
     , dnodeEnable: function() {
-        this.el.find('#dnodeDisable').show()
-        this.el.find('#dnodeEnable').hide()
+        $(this.el).find('#dnodeDisable').show()
+        $(this.el).find('#dnodeEnable').hide()
       }
     , dnodeDisable: function() {
-        this.el.find('#dnodeDisable').hide()
-        this.el.find('#dnodeEnable').show()
+        $(this.el).find('#dnodeDisable').hide()
+        $(this.el).find('#dnodeEnable').show()
       }
     })
   
-  var items = new collections.Items
+  exports.App = views.App
   
-  //items.add(new models.Item)
-  //var item = items.getByCid('c0')
-  //console.log('item url von collection:  '+item.url())
-  //console.log(items)
-  //item.save()
-  
-  exports.app = new views.App
-  
-})(window, Backbone, jade, DNode)
+})(window, DNode)
 
