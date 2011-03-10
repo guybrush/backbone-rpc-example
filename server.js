@@ -20,7 +20,8 @@ app.use(browserify(
   { mount   : '/browserify.js'
   , base    : __dirname
   , require : ['jade','backbone'] 
-  , filter  : require('jsmin').jsmin }))
+  //, filter  : require('jsmin').jsmin 
+  }))
 app.set('views',__dirname+'/views')
 app.get('/', function(req, res){res.render('layout.jade')})
 
@@ -53,37 +54,94 @@ MemoryStore.prototype.destroy = function(model) {
 
 var store = new MemoryStore
 
+bb.sync = function(method, model, options) {
+  // console.log(['SERVERSIDE BB.SYNC',method,model,options])
+  switch(method) {
+    case "read":   resp = store.get(model);     break
+    case "create": resp = store.create(model);  break
+    case "update": resp = store.set(model);     break
+    case "delete": resp = store.destroy(model); break
+  }
+  if (resp) {
+    // options.success(resp) // WTF?! --> error: has no method 'success'
+    options(resp)
+  } 
+  else {
+    options.error("Record not found")
+  }
+}
+
+serverSideCollection = new resources.collections.Items
+serverSideCollection.bind('all',function(event,data){
+  console.log('serverSideCollection -> '+event+' triggered')
+})
 //------------------------------------------------------------------------------
 //                                      REST API
 //------------------------------------------------------------------------------
 
 app.get('/items', function(req, res) {
-  res.writeHead(200)
-  res.end(JSON.stringify(store.get()))
+  serverSideCollection.fetch({success:function(data){
+    res.writeHead(200)
+    res.end(JSON.stringify(data))
+  },error:function(){}})
 })
 app.get('/items/:id', function(req, res) {
   res.writeHead(200)
-  res.end(JSON.stringify(store.get(req.params.id)))
+  res.end(JSON.stringify(serverSideCollection.get(req.params.id)))
 })
 app.post('/items', function(req, res) {
   res.writeHead(200)
-  res.end(JSON.stringify(store.create(req.body)))
+  res.end(JSON.stringify(serverSideCollection.create(req.body)))
 })
 app.put('/items/:id', function(req, res) {
   req.body.id = req.params.id
-  res.writeHead(200)
-  res.end(JSON.stringify(store.set(req.body)))
+  serverSideCollection.get(req.params.id).set(req.body).save({success:function(data){
+    res.writeHead(200)
+    res.end(JSON.stringify(data))
+  },error:function(){}})
 })
 app.del('/items/:id', function(req, res) {
-  res.writeHead(200)
-  res.end(JSON.stringify(store.destroy({id:req.params.id})))
+  res.end(JSON.stringify(serverSideCollection.get(req.params.id).destroy({success:function(data){
+    res.writeHead(200)
+    res.end(JSON.stringify(data))  
+  },error:function(){}})))
 })
+
+// app.get('/items', function(req, res) {
+//   res.writeHead(200)
+//   res.end(JSON.stringify(store.get()))
+// })
+// app.get('/items/:id', function(req, res) {
+//   res.writeHead(200)
+//   res.end(JSON.stringify(store.get(req.params.id)))
+// })
+// app.post('/items', function(req, res) {
+//   res.writeHead(200)
+//   res.end(JSON.stringify(store.create(req.body)))
+// })
+// app.put('/items/:id', function(req, res) {
+//   req.body.id = req.params.id
+//   res.writeHead(200)
+//   res.end(JSON.stringify(store.set(req.body)))
+// })
+// app.del('/items/:id', function(req, res) {
+//   res.writeHead(200)
+//   res.end(JSON.stringify(store.destroy({id:req.params.id})))
+// })
 
 //------------------------------------------------------------------------------
 //                                      RPC API (server-side backbone)
 //------------------------------------------------------------------------------
 
-dnode(resources.collections.Items).listen(app)
+function RPC(client, con) {
+  con.on('ready', function() {
+    console.log('client connected')
+    console.log(client)
+    client.create()
+  })
+}
+
+dnode(RPC).listen(app)
 
 
 

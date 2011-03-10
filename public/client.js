@@ -4,9 +4,10 @@
     , bb = require('backbone')
     , _ = require('underscore')._
     , resources = require('./resources')
-    , views = {}
-  
-  views.Item = bb.View.extend(
+    , items = new resources.collections.Items  // REST-API
+    , Item, App // backbone-views
+    
+  Item = bb.View.extend(
     { initialize: function() {
         var self = this
         _.bindAll(self, 'render')
@@ -39,11 +40,11 @@
       }
     })
   
-  views.App = bb.View.extend(
+  App = bb.View.extend(
     { initialize: function() { 
         _.bindAll(this, 'drawItem')
         var self = this
-        self.items = new resources.collections.Items
+        self.items = items // REST-API
         
         // if there are new items, draw them! else update old items
         self.items.bind('add',self.drawItem)
@@ -87,7 +88,7 @@
         this.items.create(null,{success:function(data){}})
       }
     , drawItem: function(model) {
-        this.currItems[model.id] = new views.Item({model:model})
+        this.currItems[model.id] = new Item({model:model})
         $('body').append(this.currItems[model.id].el)
       }
     , deleteItems: function() {
@@ -99,19 +100,31 @@
     , ajaxFetch: function() {
         this.items.fetch({success:function(data){}})
       }
-    , dnodeEnable: function() {
+    , rpcEnable: function() {
         $(this.el).find('#rpcDisable').show()
         $(this.el).find('#rpcEnable').hide()
-        // #TODO
+        var self = this
+        // this is where the *magic* happens!
+        dnode(function(){
+          this.create = function() {
+            self.items.create()
+          }
+        }).connect(function(remote){
+          //self.items = remote.items
+          //console.log(remote.items)
+          console.log('RPC ENABLED')
+        })
       }
-    , dnodeDisable: function() {
+    , rpcDisable: function() {
         $(this.el).find('#rpcDisable').hide()
         $(this.el).find('#rpcEnable').show()
-        // #TODO
+        // turn the *magic* off :)
+        this.items = items
+        console.log('RPC DISABLED')
       }
     })
   
-  new views.App
+  new App
   
 })(window, DNode)
 
