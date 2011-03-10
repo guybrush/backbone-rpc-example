@@ -30,29 +30,51 @@
             , background:self.model.attributes.c
             })
           .draggable()          
-          .html(jade.render(self.template,{locals:{name:self.model.attributes.name}}))
-        //$('body').append($(self.el))          
+          .html(jade.render(self.template,{locals:{name:self.model.attributes.name}}))         
         return self
+      }
+    , remove: function() {
+        this.model.destroy()
+        $(this.el).remove()
       }
     })
   
   views.App = bb.View.extend(
-    { template:
+    { initialize: function() { 
+        _.bindAll(this, 'drawItem')
+        var self = this
+        self.items = new resources.collections.Items
+        
+        // if there are new items, draw them! else update old items
+        self.items.bind('add',self.drawItem)
+        self.items.bind('refresh',function(data){
+          data.each(function(model){
+            if (!self.currItems[model.id]) self.drawItem(model)
+            else self.currItems[model.id].model.set(model.attributes)
+          })
+        })
+        
+        self.items.fetch({success:function(data){}})
+        
+        $('body').append(self.render().el)
+      }
+    , template:
       [ 'h1 backbone-server-example         '
       , 'button#createItem create new item  '
       , 'button#deleteItems delete all items'
       , 'button#ajaxSave save via Ajax      '
       , 'button#ajaxFetch fetch via Ajax    '
-      , 'button#dnodeEnable enable Dnode    '
-      , 'button#dnodeDisable disable Dnode  '
+      , 'button#rpcEnable enable RPC        '
+      , 'button#rpcDisable disable RPC      '
       , 'div#info                           '
       ].join('\n')
     , events: 
-      { 'click #createItem'   : 'createItem'
-      , 'click #ajaxSave'     : 'ajaxSave'
-      , 'click #ajaxFetch'    : 'ajaxFetch'
-      , 'click #dnodeEnable'  : 'dnodeEnable'
-      , 'click #dnodeDisable' : 'dnodeDisable'
+      { 'click #createItem'  : 'createItem'
+      , 'click #deleteItems' : 'deleteItems'
+      , 'click #ajaxSave'    : 'ajaxSave'
+      , 'click #ajaxFetch'   : 'ajaxFetch'
+      , 'click #rpcEnable'   : 'rpcEnable'
+      , 'click #rpcDisable'  : 'rpcDisable'
       }
     , render: function() {
         $(this.el).html(jade.render(this.template))
@@ -60,60 +82,32 @@
         $('body').append($(this.el))
         return this
       }
-    , initialize: function() { 
-        _.bindAll(this, 'drawItem', 'collections')
-        var self = this
-        console.log('asdf')
-        console.log(self.collections.Items)
-        self.items = new resources.collections.Items
-        //self.items = self.collections.Items
-        self.items.bind('all',function(event,data){
-          console.log('views.App.items -> '+event+' triggered')
-          //console.log(data)
-        })
-        self.items.bind('add',self.drawItem)
-        self.items.bind('refresh',function(data){
-          console.log(['items refresh',data])
-          //self.items.each(self.drawItem)
-          _.each(data.models, function(model){
-            //console.log(model)
-          })
-          self.items.each(function(model){
-            //var view = new views.Item({model:model})
-            //console.log(model.view)
-            //model.view && model.view.render()
-          })
-        })
-        self.items.fetch({success:function(data){
-          data.each(self.drawItem)
-        }})
-        
-        $('body').append(self.render().el)
-      }
+    , currItems: {} // itemId:itemView .. local already drawn items
     , createItem: function() {
-        this.items.create(null,{success:function(data){
-          console.log(['views.App -> createItem : success',data])
-        }})
+        this.items.create(null,{success:function(data){}})
       }
     , drawItem: function(model) {
-        var view = new views.Item({model:model})
-        $('body').append(view.el)
+        this.currItems[model.id] = new views.Item({model:model})
+        $('body').append(this.currItems[model.id].el)
+      }
+    , deleteItems: function() {
+        this.items.each(function(item){item.view.remove()})
       }
     , ajaxSave: function() {
         this.items.each(function(item){item.save()})
       }
     , ajaxFetch: function() {
-        this.items.fetch({success:function(data){
-          console.log(['fetch success',data])
-        }})
+        this.items.fetch({success:function(data){}})
       }
     , dnodeEnable: function() {
-        $(this.el).find('#dnodeDisable').show()
-        $(this.el).find('#dnodeEnable').hide()
+        $(this.el).find('#rpcDisable').show()
+        $(this.el).find('#rpcEnable').hide()
+        // #TODO
       }
     , dnodeDisable: function() {
-        $(this.el).find('#dnodeDisable').hide()
-        $(this.el).find('#dnodeEnable').show()
+        $(this.el).find('#rpcDisable').hide()
+        $(this.el).find('#rpcEnable').show()
+        // #TODO
       }
     })
   

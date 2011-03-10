@@ -32,7 +32,7 @@ function MemoryStore() {
   this.data = {}
 }
 MemoryStore.prototype.create = function(model) {
-  if (!model.id) model.id = Date.now()
+  if (!model.id) model.id = Date.now() // sloppy..
   this.data[model.id] = model
   return model
 }
@@ -52,58 +52,6 @@ MemoryStore.prototype.destroy = function(model) {
 }
 
 var store = new MemoryStore
-
-bb.sync = function(method, model, options) {
-  switch(method) {
-    case "read":   resp = store.get(model);     break
-    case "create": resp = store.create(model);  break
-    case "update": resp = store.set(model);     break
-    case "delete": resp = store.destroy(model); break
-  }
-  if (resp) {
-    options.success(resp)
-  } 
-  else {
-    options.error("Record not found")
-  }
-}
-
-// stores.Memory = resources.collections.Items.extend(
-//   { initialize: function() {
-//       this.models = {}
-//     }
-//   , create: function(model) {
-//       var id = Date.now()
-//       model.id = id
-//       this.models[id] = model
-//       return model
-//     }
-//   , get: function(id) {
-//       return models[id]
-//     }
-//   , destroy: function(id) {
-//       if (this.models[id]) 
-//         delete this.models[id]
-//     }
-//   })
-// 
-// stores.Couchdb = resources.collections.Items.extend(
-//   { initialize: function() {}
-//   , create: function() {}
-//   , models: function() {}
-//   , get: function() {}
-//   , destroy: function() {}
-//   })
-// 
-// stores.Redis = resources.collections.Items.extend(
-//   { initialize: function() {}
-//   , create: function() {}
-//   , models: function() {}
-//   , get: function() {}
-//   , destroy: function() {}
-//   })
-// 
-// store = new stores.Memory
 
 //------------------------------------------------------------------------------
 //                                      REST API
@@ -128,27 +76,18 @@ app.put('/items/:id', function(req, res) {
 })
 app.del('/items/:id', function(req, res) {
   res.writeHead(200)
-  res.end(JSON.stringify(store.destroy(req.params.id)))
+  res.end(JSON.stringify(store.destroy({id:req.params.id})))
 })
 
 //------------------------------------------------------------------------------
 //                                      RPC API (server-side backbone)
 //------------------------------------------------------------------------------
 
-dnode(Scene).listen(app)
+dnode(resources.collections.Items).listen(app)
 
-function Scene(client, con) {
-  con.on('ready', function() {
-    console.log('client ready')
-  })
-  con.on('end', function() {
-    console.log('client end')
-  })
-}
 
-function Item(opt) {
 
-}
+
 
 
 /*******************************************************************************
@@ -161,4 +100,62 @@ fires sync:
     bb.Model.create() -> bb.Model.save() -> create || update
     bb.Collection.fetch() -> read
 
+//----------------------------
+    
+this is for later:
+
+stores.Memory = resources.collections.Items.extend(
+  { initialize: function() {
+      this.models = {}
+    }
+  , create: function(model) {
+      var id = Date.now()
+      model.id = id
+      this.models[id] = model
+      return model
+    }
+  , get: function(id) {
+      return models[id]
+    }
+  , destroy: function(id) {
+      if (this.models[id]) 
+        delete this.models[id]
+    }
+  })
+
+stores.Couchdb = resources.collections.Items.extend(
+  { initialize: function() {}
+  , create: function() {}
+  , models: function() {}
+  , get: function() {}
+  , destroy: function() {}
+  })
+
+stores.Redis = resources.collections.Items.extend(
+  { initialize: function() {}
+  , create: function() {}
+  , models: function() {}
+  , get: function() {}
+  , destroy: function() {}
+  })
+
+store = new stores.Memory
+
+//---------------------------------
+
+bb.sync = function(method, model, options) {
+  switch(method) {
+    case "read":   resp = store.get(model);     break
+    case "create": resp = store.create(model);  break
+    case "update": resp = store.set(model);     break
+    case "delete": resp = store.destroy(model); break
+  }
+  if (resp) {
+    options.success(resp)
+  } 
+  else {
+    options.error("Record not found")
+  }
+}
+    
 *******************************************************************************/
