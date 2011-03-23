@@ -18,7 +18,6 @@
       }
     , template: '#{name}'
     , render: function() {
-        console.log('RENDER')
         var self = this
         $(self.el)
           .addClass('item')
@@ -41,34 +40,30 @@
             })
         return self
       }
-    , remove: function() {
-        this.model.destroy()
-        $(this.el).remove()
-      }
     })
   
   App = bb.View.extend(
     { initialize: function() { 
         _.bindAll(this, 'drawItem')
         var self = this
-        self.items = items // REST-API
-        
-        // if there are new items, draw them! else update old items
+        self.items = items
         self.items.bind('add',self.drawItem)
+        self.items.bind('remove',self.undrawItem)
         self.items.bind('refresh',function(data){
           data.each(function(model){
-            // self.drawItem(model)
-            if (!self.currItems[model.id]) self.drawItem(model)
-            else self.currItems[model.id].model.set(model.attributes)
+            // if there are new items, draw them! else update old items
+            if (!self.items.get(model.id).view)
+              self.drawItem(model)
+            else 
+              self.items.get(model.id).set(model.attributes)
           })
         })
-        
         self.items.fetch({success:function(data){}})
         console.log(self.items)      
         $('body').append(self.render().el)
       }
     , template:
-      [ 'h1 backbone-server-example         '
+      [ 'h1 backbone-rpc-example            '
       , 'button#createItem create new item  '
       , 'button#deleteItems delete all items'
       , 'button#ajaxSave save via Ajax      '
@@ -91,18 +86,18 @@
         $('body').append($(this.el))
         return this
       }
-    , currItems: {} // itemId:itemView .. local already drawn items
     , createItem: function() {
         this.items.create(null,{success:function(data){}})
       }
     , drawItem: function(model) {
-        this.currItems[model.id] = new Item({model:model})
-         $('body').append(this.currItems[model.id].el)
-        // var item = new Item({model:model})
-        // $('body').append(item.el)
+        var item = new Item({model:model})
+        $('body').append(item.el)
+      }
+    , undrawItem: function(model) {
+        $(model.view.el).remove()
       }
     , deleteItems: function() {
-        this.items.each(function(item){item.view.remove()})
+        this.items.each(function(item){item.destroy()})
       }
     , ajaxSave: function() {
         this.items.each(function(item){item.save()})
@@ -115,33 +110,30 @@
         var self = this
         $(self.el).find('#rpcDisable').show()
         $(self.el).find('#rpcEnable').hide()
-        
-        
-        
         DNode(function(){
-          this.trigger = function(data) {
+          this.change = function(data) {
             self.items.get(data.id).set(data,{silent:true}).view.render()
+          }
+          this.remove = function(data) {
+            self.undrawItem(self.items.get(data))
+          }
+          this.add = function(data) {
+            console.log(['adding',data])
+            self.items.add(data)
           }
         }).connect(function(remote){
           self.items.bind('change',function(data){
-            //var attr = self.items.get(data.id).changedAttributes(data)
-            //attr.id = data.id
-            remote.trigger(data)
-          })
-          self.items.each(function(model){
-            model.unbind('change')
+            var changed = self.items.get(data.id).changedAttributes(data.attributes)
+            changed.id = data.id
+            remote.change(changed)
           })
           console.log('RPC ENABLED')
         })
-
       }
     , rpcDisable: function() {
         $(this.el).find('#rpcDisable').hide()
         $(this.el).find('#rpcEnable').show()
-        self.items.each(function(model){
-          model.bind('change', model.view.render())
-        })
-        console.log('RPC DISABLED')
+        console.log('RPC DISABLED') // #TODO
       }
     })
   

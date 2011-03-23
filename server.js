@@ -6,8 +6,6 @@ var resources  = require('./resources')
   , browserify = require('browserify')
   , _          = require('underscore')._
   , bb         = require('backbone')
-  , cradle     = require('cradle')
-  , now        = require('now')
   , express    = require('express')
   , app        = express.createServer()
 
@@ -111,7 +109,10 @@ app.post('/items', function(req, res) {
   serverSideCollection.create(req.body,{success:function(data){
     res.writeHead(200)
     res.end(JSON.stringify(data))  
-  },error:function(err){res.writeHead(404);res.end(err)}})
+  },error:function(err){
+    res.writeHead(404)
+    res.end(err)}
+  })
 })
 app.put('/items/:id', function(req, res) {
   console.log('---- PUT /items/:id')
@@ -119,14 +120,20 @@ app.put('/items/:id', function(req, res) {
   serverSideCollection.get(req.params.id).set(req.body).save({success:function(data){
     res.writeHead(200)
     res.end(JSON.stringify(data))
-  },error:function(err){res.writeHead(404);res.end(err)}})
+  },error:function(err){
+    res.writeHead(404)
+    res.end(err)}
+  })
 })
 app.del('/items/:id', function(req, res) {
   console.log('---- DEL /items/:id')
   res.end(JSON.stringify(serverSideCollection.get(req.params.id).destroy({success:function(data){
     res.writeHead(200)
     res.end(JSON.stringify(data))  
-  },error:function(err){res.writeHead(404);res.end(err)}})))
+  },error:function(err){
+    res.writeHead(404)
+    res.end(err)
+  }})))
 })
 
 //------------------------------------------------------------------------------
@@ -139,17 +146,30 @@ function RPC(client, con) {
   con.on('ready', function() {
     clients[con.id] = client    
     serverSideCollection.bind('change', function(data){
-      client.trigger(data.attributes)
+      var changed = serverSideCollection.get(data.id).changedAttributes(data.attributes)
+      changed.id = data.id
+      client.change(changed)
+    })
+    serverSideCollection.bind('remove', function(data){
+      client.remove(data.attributes.id)
+    })
+    serverSideCollection.bind('add', function(data){
+      client.add(data.attributes)
     })
   })
-  this.trigger = function(data) {
-    //console.log('client triggered: '+event+' '+data.id)
-    console.log(data.id)
+  con.on('end', function() {
+    delete clients[con.id]
+  })
+  this.change = function(data) {
     serverSideCollection.get(data.id).set(data)
-    //if (event == 'change') serverSideCollection.get(data.id).set(data)
   }
 }
+
+app.listen(process.env.PORT || 8001)
+
 dnode(RPC).listen(app)
+
+
 
 /*******************************************************************************
 
