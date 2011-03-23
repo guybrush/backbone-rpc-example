@@ -163,6 +163,11 @@ function RPC(client, con) {
   this.change = function(data) {
     serverSideCollection.get(data.id).set(data)
   }
+  this.add = function() {
+    serverSideCollection.create()
+  }
+  this.remove = function(data) {
+  }
 }
 
 app.listen(process.env.PORT || 3000)

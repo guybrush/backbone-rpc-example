@@ -13,11 +13,13 @@
         var self = this
         _.bindAll(self, 'render')
         self.model.bind('change', self.render)
+        self.model.bind('change', function() {console.log('change')})
         self.model.view = self
         self.render()
       }
     , template: '#{name}'
     , render: function() {
+        //console.log('RENDER')
         var self = this
         $(self.el)
           .addClass('item')
@@ -49,22 +51,29 @@
   
   App = bb.View.extend(
     { initialize: function() { 
-        _.bindAll(this, 'drawItem')
+        _.bindAll(this, 'drawItem', 'drawnItems')
         var self = this
         self.items = items
         self.items.bind('add',self.drawItem)
         self.items.bind('remove',self.undrawItem)
         self.items.bind('refresh',function(data){
+          console.log('refresh!')
           data.each(function(model){
             // if there are new items, draw them! otherwise update old items
-            if (!self.items.get(model.id).view)
-              self.drawItem(model)
-            else 
+            // self.items.get(model.id).set(model.attributes)
+            console.log(self.drawnItems[model.id])
+            if (self.drawnItems[model.id]) {
               self.items.get(model.id).set(model.attributes)
+            } else {
+              //self.items.remove(self.items.get(model.id))
+              //self.undrawItem(model)
+              self.drawItem(model)
+            }
           })
         })
-        self.items.fetch({success:function(data){}})
-        console.log(self.items)      
+        self.items.fetch({success:function(data){
+          data.each(self.drawItem)
+        }}) 
         $('body').append(self.render().el)
       }
     , template:
@@ -90,12 +99,19 @@
         $(this.el).find('#rpcDisable').hide()
         $('body').append($(this.el))
         return this
-      }
+      }    
     , createItem: function() {
-        this.items.create(null,{success:function(data){}})
+        if (!rpcEnabled)
+          this.items.create(null,{success:function(data){}})
+        else
+          this.items.trigger('rpc:add')
       }
+    , drawnItems: {}
     , drawItem: function(model) {
+        //console.log('DRAW ITEM')
         var item = new Item({model:model})
+        this.drawnItems[model.id] = item
+        //this.items.get(model.id).view = new Item({model:model})
         $('body').append(item.el)
       }
     , undrawItem: function(model) {
@@ -118,13 +134,15 @@
         $(self.el).find('#rpcEnable').hide()
         DNode(function(){
           this.change = function(data) {
-            self.items.get(data.id).set(data,{silent:true}).view.render()
+            self.items.get(data.id).set(data)
           }
           this.remove = function(data) {
             self.undrawItem(self.items.get(data))
           }
           this.add = function(data) {
-            self.items.add(data)
+            console.log([data,self.items,self.items.get(data.id)])
+            if (!self.items.get(data.id)) self.items.add(data)
+            console.log(self.items)
           }
         }).connect(function(remote){
           self.items.bind('rpc:change',function(data){
@@ -132,6 +150,10 @@
             changed.id = data.id
             remote.change(changed)
           })
+          self.items.bind('rpc:add',function(data){
+            remote.add()
+          })
+          self.items.bind('rpc:remove',function(data){})
         })
       }
     , rpcDisable: function() {
