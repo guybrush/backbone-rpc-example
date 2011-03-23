@@ -12,7 +12,7 @@
     { initialize: function() {
         var self = this
         _.bindAll(self, 'render')
-        //self.model.bind('change', self.render)
+        self.model.bind('change', self.render)
         self.model.view = self
         self.render()
       }
@@ -35,7 +35,7 @@
                 // it will be rendered upon change-event
                 self.model.set({x:ui.position.left,y:ui.position.top})
               }
-            , cursor: 'move'
+            , stack: '.items' 
             , opacity: 0.7
             , helper: 'clone'
             })
@@ -110,30 +110,25 @@
     , ajaxFetch: function() {
         this.items.fetch({success:function(data){}})
       }
-    , rpc: function() {
-        return DNode(function(){
-          this.trigger = function(event,data) {
-            console.log('server triggered: '+event+' '+data)
-          }
-        })  
-      } 
+    , rpc: function() {return DNode(function(){})} 
     , rpcEnable: function() {
-        $(this.el).find('#rpcDisable').show()
-        $(this.el).find('#rpcEnable').hide()
-        
         var self = this
+        $(self.el).find('#rpcDisable').show()
+        $(self.el).find('#rpcEnable').hide()
+        
+        
         
         DNode(function(){
-          this.trigger = function(event,data) {
-            console.log('server triggered: '+event+' '+data.id)
+          this.trigger = function(data) {
             self.items.get(data.id).set(data,{silent:true}).view.render()
           }
         }).connect(function(remote){
-          self.items.bind('all',function(event,data){
-            remote.trigger(event, data.attributes)
+          self.items.bind('change',function(data){
+            //var attr = self.items.get(data.id).changedAttributes(data)
+            //attr.id = data.id
+            remote.trigger(data)
           })
           self.items.each(function(model){
-            console.log(model)
             model.unbind('change')
           })
           console.log('RPC ENABLED')
@@ -144,7 +139,7 @@
         $(this.el).find('#rpcDisable').hide()
         $(this.el).find('#rpcEnable').show()
         self.items.each(function(model){
-          model.bind('change',function(){model.view.render()})
+          model.bind('change', model.view.render())
         })
         console.log('RPC DISABLED')
       }

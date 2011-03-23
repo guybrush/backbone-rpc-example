@@ -138,14 +138,15 @@ var clients = {}
 function RPC(client, con) {
   con.on('ready', function() {
     clients[con.id] = client    
-    serverSideCollection.bind('all', function(event, data){
-      client.trigger(event, data.attributes)
+    serverSideCollection.bind('change', function(data){
+      client.trigger(data.attributes)
     })
   })
-  this.trigger = function(event,data) {
-    console.log('client triggered: '+event+' '+data.id)
-    if (event == 'change')
-      serverSideCollection.get(data.id).set(data)
+  this.trigger = function(data) {
+    //console.log('client triggered: '+event+' '+data.id)
+    console.log(data.id)
+    serverSideCollection.get(data.id).set(data)
+    //if (event == 'change') serverSideCollection.get(data.id).set(data)
   }
 }
 dnode(RPC).listen(app)
