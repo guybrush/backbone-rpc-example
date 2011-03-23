@@ -1,3 +1,5 @@
+// console.log = function(obj) {}
+
 var resources  = require('./resources')
   , dnode      = require('dnode')
   , stylus     = require('stylus')
@@ -5,6 +7,7 @@ var resources  = require('./resources')
   , _          = require('underscore')._
   , bb         = require('backbone')
   , cradle     = require('cradle')
+  , now        = require('now')
   , express    = require('express')
   , app        = express.createServer()
 
@@ -20,7 +23,7 @@ app.use(browserify(
   { mount   : '/browserify.js'
   , base    : __dirname
   , require : ['jade','backbone'] 
-  //, filter  : require('jsmin').jsmin 
+  , filter  : require('jsmin').jsmin 
   }))
 app.set('views',__dirname+'/views')
 app.get('/', function(req, res){res.render('layout.jade')})
@@ -33,21 +36,26 @@ function MemoryStore() {
   this.data = {}
 }
 MemoryStore.prototype.create = function(model) {
-  if (!model.id) model.id = Date.now() // sloppy..
+  if (!model.id) 
+    model.id = model.attributes.id = Date.now() // sloppy..
+  console.log(['---- saving',model])
   this.data[model.id] = model
   return model
 }
 MemoryStore.prototype.set = function(model) {
+  console.log(['---- setting',model])
   this.data[model.id] = model
   return model
 }
 MemoryStore.prototype.get = function(model) {
+  console.log(['---- getting',model])
   if (model && model.id)
     return this.data[model.id]
   else
     return _.values(this.data)
 }
 MemoryStore.prototype.destroy = function(model) {
+  console.log(['---- destroying',model])
   delete this.data[model.id]
   return model
 }
@@ -55,7 +63,7 @@ MemoryStore.prototype.destroy = function(model) {
 var store = new MemoryStore
 
 bb.sync = function(method, model, options) {
-  // console.log(['SERVERSIDE BB.SYNC',method,model,options])
+  //console.log(['SERVERSIDE BB.SYNC',method,model,options])
   switch(method) {
     case "read":   resp = store.get(model);     break
     case "create": resp = store.create(model);  break
@@ -72,81 +80,75 @@ bb.sync = function(method, model, options) {
 }
 
 serverSideCollection = new resources.collections.Items
-serverSideCollection.bind('all',function(event,data){
-  console.log('serverSideCollection -> '+event+' triggered')
-})
+
 //------------------------------------------------------------------------------
 //                                      REST API
 //------------------------------------------------------------------------------
 
 app.get('/items', function(req, res) {
+  console.log('---- GET /items')
   serverSideCollection.fetch({success:function(data){
     res.writeHead(200)
     res.end(JSON.stringify(data))
-  },error:function(){}})
+  }, error:function(err){
+    res.writeHead(204)
+    res.end(err)
+  }})
 })
 app.get('/items/:id', function(req, res) {
-  res.writeHead(200)
-  res.end(JSON.stringify(serverSideCollection.get(req.params.id)))
+  console.log('---- GET /items/:id')
+  var model = serverSideCollection.get(req.params.id)
+  if (model) {
+    res.writeHead(200)
+    res.end(JSON.stringify(model))
+  } else {
+    res.writeHead(404)
+    res.end('Record not found')
+  }
 })
 app.post('/items', function(req, res) {
-  res.writeHead(200)
-  res.end(JSON.stringify(serverSideCollection.create(req.body)))
+  console.log('---- POST /items')
+  serverSideCollection.create(req.body,{success:function(data){
+    res.writeHead(200)
+    res.end(JSON.stringify(data))  
+  },error:function(err){res.writeHead(404);res.end(err)}})
 })
 app.put('/items/:id', function(req, res) {
+  console.log('---- PUT /items/:id')
   req.body.id = req.params.id
   serverSideCollection.get(req.params.id).set(req.body).save({success:function(data){
     res.writeHead(200)
     res.end(JSON.stringify(data))
-  },error:function(){}})
+  },error:function(err){res.writeHead(404);res.end(err)}})
 })
 app.del('/items/:id', function(req, res) {
+  console.log('---- DEL /items/:id')
   res.end(JSON.stringify(serverSideCollection.get(req.params.id).destroy({success:function(data){
     res.writeHead(200)
     res.end(JSON.stringify(data))  
-  },error:function(){}})))
+  },error:function(err){res.writeHead(404);res.end(err)}})))
 })
 
-// app.get('/items', function(req, res) {
-//   res.writeHead(200)
-//   res.end(JSON.stringify(store.get()))
-// })
-// app.get('/items/:id', function(req, res) {
-//   res.writeHead(200)
-//   res.end(JSON.stringify(store.get(req.params.id)))
-// })
-// app.post('/items', function(req, res) {
-//   res.writeHead(200)
-//   res.end(JSON.stringify(store.create(req.body)))
-// })
-// app.put('/items/:id', function(req, res) {
-//   req.body.id = req.params.id
-//   res.writeHead(200)
-//   res.end(JSON.stringify(store.set(req.body)))
-// })
-// app.del('/items/:id', function(req, res) {
-//   res.writeHead(200)
-//   res.end(JSON.stringify(store.destroy({id:req.params.id})))
-// })
+//------------------------------------------------------------------------------
+//                                      RPC API
+//------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------
-//                                      RPC API (server-side backbone)
-//------------------------------------------------------------------------------
+var clients = {}
 
 function RPC(client, con) {
   con.on('ready', function() {
-    console.log('client connected')
-    console.log(client)
-    client.create()
+    clients[con.id] = client    
+    serverSideCollection.bind('all', function(event, data){
+      client.trigger(event, data.attributes)
+    })
   })
+  this.trigger = function(event,data) {
+    console.log('client triggered: '+event+' '+data.id)
+    if (event == 'change')
+      serverSideCollection.get(data.id).set(data)
+  }
 }
-
 dnode(RPC).listen(app)
-
-
-
-
-
 
 /*******************************************************************************
 
@@ -157,63 +159,5 @@ fires sync:
     bb.Model.destroy() -> delete
     bb.Model.create() -> bb.Model.save() -> create || update
     bb.Collection.fetch() -> read
-
-//----------------------------
-    
-this is for later:
-
-stores.Memory = resources.collections.Items.extend(
-  { initialize: function() {
-      this.models = {}
-    }
-  , create: function(model) {
-      var id = Date.now()
-      model.id = id
-      this.models[id] = model
-      return model
-    }
-  , get: function(id) {
-      return models[id]
-    }
-  , destroy: function(id) {
-      if (this.models[id]) 
-        delete this.models[id]
-    }
-  })
-
-stores.Couchdb = resources.collections.Items.extend(
-  { initialize: function() {}
-  , create: function() {}
-  , models: function() {}
-  , get: function() {}
-  , destroy: function() {}
-  })
-
-stores.Redis = resources.collections.Items.extend(
-  { initialize: function() {}
-  , create: function() {}
-  , models: function() {}
-  , get: function() {}
-  , destroy: function() {}
-  })
-
-store = new stores.Memory
-
-//---------------------------------
-
-bb.sync = function(method, model, options) {
-  switch(method) {
-    case "read":   resp = store.get(model);     break
-    case "create": resp = store.create(model);  break
-    case "update": resp = store.set(model);     break
-    case "delete": resp = store.destroy(model); break
-  }
-  if (resp) {
-    options.success(resp)
-  } 
-  else {
-    options.error("Record not found")
-  }
-}
     
 *******************************************************************************/

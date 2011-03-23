@@ -1,26 +1,24 @@
-(function(exports, dnode){
+(function(exports){
     
   var jade = require('jade')
     , bb = require('backbone')
     , _ = require('underscore')._
     , resources = require('./resources')
-    , items = new resources.collections.Items  // REST-API
-    , Item, App // backbone-views
-    
+    , items = new resources.collections.Items
+    , Item, App 
+    , rpcEnabled = false
+           
   Item = bb.View.extend(
     { initialize: function() {
         var self = this
         _.bindAll(self, 'render')
-        self.model.bind('change', self.render)
+        //self.model.bind('change', self.render)
         self.model.view = self
         self.render()
-        $(self.el).bind('drag',function(){
-          var pos = $(this).position()
-          self.model.set({x:pos.left,y:pos.top})
-        })
       }
     , template: '#{name}'
     , render: function() {
+        console.log('RENDER')
         var self = this
         $(self.el)
           .addClass('item')
@@ -29,9 +27,18 @@
             , top:self.model.attributes.y, left:self.model.attributes.x
             , width:self.model.attributes.w, height:self.model.attributes.h
             , background:self.model.attributes.c
+            })          
+          .html(jade.render(self.template,{locals:{name:self.model.attributes.name}}))
+          .draggable( 
+            { drag: function(event, ui) {
+                // we DONT drag the dom-element, we just set the attributes
+                // it will be rendered upon change-event
+                self.model.set({x:ui.position.left,y:ui.position.top})
+              }
+            , cursor: 'move'
+            , opacity: 0.7
+            , helper: 'clone'
             })
-          .draggable()          
-          .html(jade.render(self.template,{locals:{name:self.model.attributes.name}}))         
         return self
       }
     , remove: function() {
@@ -50,13 +57,14 @@
         self.items.bind('add',self.drawItem)
         self.items.bind('refresh',function(data){
           data.each(function(model){
+            // self.drawItem(model)
             if (!self.currItems[model.id]) self.drawItem(model)
             else self.currItems[model.id].model.set(model.attributes)
           })
         })
         
         self.items.fetch({success:function(data){}})
-        
+        console.log(self.items)      
         $('body').append(self.render().el)
       }
     , template:
@@ -79,7 +87,7 @@
       }
     , render: function() {
         $(this.el).html(jade.render(this.template))
-        $(this.el).find('#dnodeDisable').hide()
+        $(this.el).find('#rpcDisable').hide()
         $('body').append($(this.el))
         return this
       }
@@ -89,7 +97,9 @@
       }
     , drawItem: function(model) {
         this.currItems[model.id] = new Item({model:model})
-        $('body').append(this.currItems[model.id].el)
+         $('body').append(this.currItems[model.id].el)
+        // var item = new Item({model:model})
+        // $('body').append(item.el)
       }
     , deleteItems: function() {
         this.items.each(function(item){item.view.remove()})
@@ -100,31 +110,47 @@
     , ajaxFetch: function() {
         this.items.fetch({success:function(data){}})
       }
+    , rpc: function() {
+        return DNode(function(){
+          this.trigger = function(event,data) {
+            console.log('server triggered: '+event+' '+data)
+          }
+        })  
+      } 
     , rpcEnable: function() {
         $(this.el).find('#rpcDisable').show()
         $(this.el).find('#rpcEnable').hide()
+        
         var self = this
-        // this is where the *magic* happens!
-        dnode(function(){
-          this.create = function() {
-            self.items.create()
+        
+        DNode(function(){
+          this.trigger = function(event,data) {
+            console.log('server triggered: '+event+' '+data.id)
+            self.items.get(data.id).set(data,{silent:true}).view.render()
           }
         }).connect(function(remote){
-          //self.items = remote.items
-          //console.log(remote.items)
+          self.items.bind('all',function(event,data){
+            remote.trigger(event, data.attributes)
+          })
+          self.items.each(function(model){
+            console.log(model)
+            model.unbind('change')
+          })
           console.log('RPC ENABLED')
         })
+
       }
     , rpcDisable: function() {
         $(this.el).find('#rpcDisable').hide()
         $(this.el).find('#rpcEnable').show()
-        // turn the *magic* off :)
-        this.items = items
+        self.items.each(function(model){
+          model.bind('change',function(){model.view.render()})
+        })
         console.log('RPC DISABLED')
       }
     })
   
   new App
   
-})(window, DNode)
+})(this)
 
