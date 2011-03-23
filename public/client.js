@@ -32,7 +32,12 @@
             { drag: function(event, ui) {
                 // we DONT drag the dom-element, we just set the attributes
                 // it will be rendered upon change-event
-                self.model.set({x:ui.position.left,y:ui.position.top})
+                if (!rpcEnabled) {
+                  self.model.set({x:ui.position.left,y:ui.position.top})
+                } else {
+                  self.model.trigger('rpc:change',
+                    {id:self.model.id,x:ui.position.left,y:ui.position.top})
+                }
               }
             , stack: '.items' 
             , opacity: 0.7
@@ -51,7 +56,7 @@
         self.items.bind('remove',self.undrawItem)
         self.items.bind('refresh',function(data){
           data.each(function(model){
-            // if there are new items, draw them! else update old items
+            // if there are new items, draw them! otherwise update old items
             if (!self.items.get(model.id).view)
               self.drawItem(model)
             else 
@@ -107,6 +112,7 @@
       }
     , rpc: function() {return DNode(function(){})} 
     , rpcEnable: function() {
+        rpcEnabled = true
         var self = this
         $(self.el).find('#rpcDisable').show()
         $(self.el).find('#rpcEnable').hide()
@@ -118,22 +124,20 @@
             self.undrawItem(self.items.get(data))
           }
           this.add = function(data) {
-            console.log(['adding',data])
             self.items.add(data)
           }
         }).connect(function(remote){
-          self.items.bind('change',function(data){
-            var changed = self.items.get(data.id).changedAttributes(data.attributes)
+          self.items.bind('rpc:change',function(data){
+            var changed = self.items.get(data.id).changedAttributes(data)
             changed.id = data.id
             remote.change(changed)
           })
-          console.log('RPC ENABLED')
         })
       }
     , rpcDisable: function() {
+        rpcEnabled = false
         $(this.el).find('#rpcDisable').hide()
         $(this.el).find('#rpcEnable').show()
-        console.log('RPC DISABLED') // #TODO
       }
     })
   
