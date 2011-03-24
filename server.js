@@ -1,5 +1,3 @@
-// console.log = function(obj) {}
-
 var resources  = require('./resources')
   , dnode      = require('dnode')
   , stylus     = require('stylus')
@@ -8,6 +6,7 @@ var resources  = require('./resources')
   , bb         = require('backbone')
   , express    = require('express')
   , app        = express.createServer()
+  , debugging  = true
 
 module.exports = app
 
@@ -36,24 +35,24 @@ function MemoryStore() {
 MemoryStore.prototype.create = function(model) {
   if (!model.id) 
     model.id = model.attributes.id = Date.now() // sloppy..
-  console.log(['---- saving',model])
+  debug(['---- saving',model])
   this.data[model.id] = model
   return model
 }
 MemoryStore.prototype.set = function(model) {
-  console.log(['---- setting',model])
+  debug(['---- setting',model])
   this.data[model.id] = model
   return model
 }
 MemoryStore.prototype.get = function(model) {
-  console.log(['---- getting',model])
+  debug(['---- getting',model])
   if (model && model.id)
     return this.data[model.id]
   else
     return _.values(this.data)
 }
 MemoryStore.prototype.destroy = function(model) {
-  console.log(['---- destroying',model])
+  debug(['---- destroying',model])
   delete this.data[model.id]
   return model
 }
@@ -61,7 +60,7 @@ MemoryStore.prototype.destroy = function(model) {
 var store = new MemoryStore
 
 bb.sync = function(method, model, options) {
-  //console.log(['SERVERSIDE BB.SYNC',method,model,options])
+  //debug(['SERVERSIDE BB.SYNC',method,model,options])
   switch(method) {
     case "read":   resp = store.get(model);     break
     case "create": resp = store.create(model);  break
@@ -84,7 +83,7 @@ serverSideCollection = new resources.collections.Items
 //------------------------------------------------------------------------------
 
 app.get('/items', function(req, res) {
-  console.log('---- GET /items')
+  debug('---- GET /items')
   serverSideCollection.fetch({success:function(data){
     res.writeHead(200)
     res.end(JSON.stringify(data))
@@ -94,7 +93,7 @@ app.get('/items', function(req, res) {
   }})
 })
 app.get('/items/:id', function(req, res) {
-  console.log('---- GET /items/:id')
+  debug('---- GET /items/:id')
   var model = serverSideCollection.get(req.params.id)
   if (model) {
     res.writeHead(200)
@@ -105,7 +104,7 @@ app.get('/items/:id', function(req, res) {
   }
 })
 app.post('/items', function(req, res) {
-  console.log('---- POST /items')
+  debug('---- POST /items')
   serverSideCollection.create(req.body,{success:function(data){
     res.writeHead(200)
     res.end(JSON.stringify(data))  
@@ -115,7 +114,7 @@ app.post('/items', function(req, res) {
   })
 })
 app.put('/items/:id', function(req, res) {
-  console.log('---- PUT /items/:id')
+  debug('---- PUT /items/:id')
   req.body.id = req.params.id
   serverSideCollection.get(req.params.id).set(req.body).save({success:function(data){
     res.writeHead(200)
@@ -126,7 +125,7 @@ app.put('/items/:id', function(req, res) {
   })
 })
 app.del('/items/:id', function(req, res) {
-  console.log('---- DEL /items/:id')
+  debug('---- DEL /items/:id')
   res.end(JSON.stringify(serverSideCollection.get(req.params.id).destroy({success:function(data){
     res.writeHead(200)
     res.end(JSON.stringify(data))  
@@ -175,6 +174,9 @@ app.listen(process.env.PORT || 3000)
 dnode(RPC).listen(app)
 
 
+function debug(msg) {
+  if (debugging) console.log(msg)
+}
 
 /*******************************************************************************
 

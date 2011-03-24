@@ -13,13 +13,11 @@
         var self = this
         _.bindAll(self, 'render')
         self.model.bind('change', self.render)
-        self.model.bind('change', function() {console.log('change')})
         self.model.view = self
         self.render()
       }
     , template: '#{name}'
     , render: function() {
-        //console.log('RENDER')
         var self = this
         $(self.el)
           .addClass('item')
@@ -29,7 +27,7 @@
             , width:self.model.attributes.w, height:self.model.attributes.h
             , background:self.model.attributes.c
             })          
-          .html(jade.render(self.template,{locals:{name:self.model.attributes.name}}))
+          .html(jade.render(self.template,{locals:self.model.attributes}))
           .draggable( 
             { drag: function(event, ui) {
                 // we DONT drag the dom-element, we just set the attributes
@@ -42,7 +40,7 @@
                 }
               }
             , stack: '.items' 
-            , opacity: 0.7
+            , opacity: 0.5
             , helper: 'clone'
             })
         return self
@@ -57,23 +55,16 @@
         self.items.bind('add',self.drawItem)
         self.items.bind('remove',self.undrawItem)
         self.items.bind('refresh',function(data){
-          console.log('refresh!')
           data.each(function(model){
             // if there are new items, draw them! otherwise update old items
-            // self.items.get(model.id).set(model.attributes)
-            console.log(self.drawnItems[model.id])
             if (self.drawnItems[model.id]) {
-              self.items.get(model.id).set(model.attributes)
+              self.drawnItems[model.id].model.set(model.attributes)
             } else {
-              //self.items.remove(self.items.get(model.id))
-              //self.undrawItem(model)
               self.drawItem(model)
             }
           })
         })
-        self.items.fetch({success:function(data){
-          data.each(self.drawItem)
-        }}) 
+        self.items.fetch({success:function(data){}}) 
         $('body').append(self.render().el)
       }
     , template:
