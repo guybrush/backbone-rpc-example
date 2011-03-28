@@ -6,7 +6,7 @@ var resources  = require('./resources')
   , bb         = require('backbone')
   , express    = require('express')
   , app        = express.createServer()
-  , debugging  = true
+  , debugging  = false
 
 module.exports = app
 
@@ -145,9 +145,12 @@ function RPC(client, con) {
   con.on('ready', function() {
     clients[con.id] = client    
     serverSideCollection.bind('change', function(data){
-      var changed = serverSideCollection.get(data.id).changedAttributes(data.attributes)
-      changed.id = data.id
-      client.change(changed)
+      var model = serverSideCollection.get(data.id)
+      if (model) {
+        var changed = model.changedAttributes(data.attributes)
+        changed.id = data.id
+        client.change(changed)
+      }
     })
     serverSideCollection.bind('remove', function(data){
       client.remove(data.attributes.id)
@@ -160,7 +163,8 @@ function RPC(client, con) {
     delete clients[con.id]
   })
   this.change = function(data) {
-    serverSideCollection.get(data.id).set(data)
+    var model = serverSideCollection.get(data.id)
+    if (model) model.set(data)
   }
   this.add = function() {
     serverSideCollection.create()

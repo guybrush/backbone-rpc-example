@@ -52,6 +52,9 @@
         _.bindAll(this, 'drawItem', 'drawnItems')
         var self = this
         self.items = items
+        self.items.bind('all',function(event,a,b){
+          console.log(['triggered',event,a,b])
+        })
         self.items.bind('add',self.drawItem)
         self.items.bind('remove',self.undrawItem)
         self.items.bind('refresh',function(data){
@@ -99,10 +102,8 @@
       }
     , drawnItems: {}
     , drawItem: function(model) {
-        //console.log('DRAW ITEM')
         var item = new Item({model:model})
         this.drawnItems[model.id] = item
-        //this.items.get(model.id).view = new Item({model:model})
         $('body').append(item.el)
       }
     , undrawItem: function(model) {
@@ -117,7 +118,7 @@
     , ajaxFetch: function() {
         this.items.fetch({success:function(data){}})
       }
-    , rpc: function() {return DNode(function(){})} 
+    , rpc: null
     , rpcEnable: function() {
         rpcEnabled = true
         var self = this
